@@ -2,140 +2,186 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Groot Call - Video Room</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Groot Meet</title>
   <script src="https://unpkg.com/peerjs@1.3.2/dist/peerjs.min.js"></script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
     body {
-      background: #121212;
-      color: white;
-      padding: 20px;
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #000000;
+      color: #ffffff;
+      text-align: center;
     }
     header {
-      text-align: center;
-      margin-bottom: 20px;
+      background-color: #1e1e1e;
+      padding: 20px;
+      font-size: 28px;
+      color: #0ff;
+      box-shadow: 0px 2px 10px #0ff;
     }
-    h1 {
-      font-size: 2.5rem;
-      color: #00f9ff;
+    .container {
+      padding: 20px;
     }
-    .controls {
+    .video-grid {
       display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .controls input {
-      padding: 10px;
-      border-radius: 5px;
-      border: none;
-      width: 200px;
-    }
-    .controls button {
-      padding: 10px 20px;
-      border: none;
-      background: #00f9ff;
-      color: #000;
-      font-weight: bold;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    .videos {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      flex-wrap: wrap;
       gap: 20px;
-      justify-items: center;
+      justify-content: center;
+      margin-top: 20px;
     }
     video {
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0, 249, 255, 0.5);
-      max-width: 100%;
+      width: 300px;
+      height: 200px;
+      border-radius: 12px;
+      border: 3px solid #0ff;
+      box-shadow: 0px 0px 15px #0ff;
+      background: black;
     }
-    .room-code {
-      text-align: center;
-      margin-bottom: 20px;
-      font-size: 1.2rem;
+    input, button {
+      padding: 12px;
+      font-size: 16px;
+      margin: 10px;
+      border-radius: 8px;
+      border: none;
+    }
+    input {
+      width: 200px;
+      background: #1e1e1e;
+      color: white;
+      border: 1px solid #0ff;
+    }
+    button {
+      background: #0ff;
+      color: black;
+      cursor: pointer;
+      box-shadow: 0px 0px 10px #0ff;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #00bbff;
+    }
+    .controls {
+      margin-top: 30px;
+    }
+    .status {
+      margin-top: 15px;
+      color: yellow;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>🚀 Groot Video Call</h1>
-  </header>
-
-  <div class="room-code">
-    Your Room Code: <span id="roomCodeBox">Generating...</span>
-  </div>
-
-  <div class="controls">
-    <input type="text" id="peerId" placeholder="Enter Room Code to Call">
-    <button onclick="startCall()">📞 Call</button>
-    <button onclick="endCall()">❌ End</button>
-  </div>
-
-  <div class="videos">
+  <header>🚀 Groot Meet</header>
+  <div class="container">
     <div>
-      <h3>📹 You</h3>
-      <video id="localVideo" autoplay muted playsinline></video>
+      <input type="text" id="roomInput" placeholder="Enter 6-digit room code" />
+      <button onclick="createRoom()">🎯 Create Room</button>
+      <button onclick="joinRoom()">🔗 Join Room</button>
     </div>
-    <div>
-      <h3>👥 Other</h3>
-      <video id="remoteVideo" autoplay playsinline></video>
+    <div class="status" id="statusBox">Enter or create a room to start</div>
+
+    <div class="video-grid" id="videoGrid">
+      <!-- Local and remote videos will appear here -->
     </div>
   </div>
 
   <script>
-    let localStream, currentCall;
+    let peer;
+    let localStream;
+    let peers = {};
+    let myRoomId = '';
+    const videoGrid = document.getElementById("videoGrid");
 
-    const roomCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const peer = new Peer(roomCode);
+    window.onload = () => {
+      getMedia();
+    };
 
-    peer.on("open", id => {
-      document.getElementById("roomCodeBox").textContent = id;
-      console.log("Peer ID:", id);
-    });
-
-    peer.on("call", call => {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(stream => {
-          localStream = stream;
-          document.getElementById("localVideo").srcObject = stream;
-          call.answer(stream);
-          call.on("stream", remoteStream => {
-            document.getElementById("remoteVideo").srcObject = remoteStream;
-          });
-          currentCall = call;
-        });
-    });
-
-    function startCall() {
-      const peerId = document.getElementById("peerId").value;
-      if (!peerId) return alert("Enter room code!");
-
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(stream => {
-          localStream = stream;
-          document.getElementById("localVideo").srcObject = stream;
-          const call = peer.call(peerId, stream);
-          call.on("stream", remoteStream => {
-            document.getElementById("remoteVideo").srcObject = remoteStream;
-          });
-          currentCall = call;
-        });
+    async function getMedia() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localStream = stream;
+        addVideoStream(stream, 'You');
+      } catch (e) {
+        alert("Error accessing media: " + e.message);
+      }
     }
 
-    function endCall() {
-      if (currentCall) {
-        currentCall.close();
-        currentCall = null;
-        document.getElementById("remoteVideo").srcObject = null;
+    function createRoom() {
+      const roomId = generateRoomId();
+      document.getElementById("roomInput").value = roomId;
+      initPeer(roomId);
+      document.getElementById("statusBox").innerText = "Room created: Share code " + roomId;
+    }
+
+    function joinRoom() {
+      const roomId = document.getElementById("roomInput").value.trim();
+      if (!roomId) {
+        alert("Please enter a room code");
+        return;
       }
+      initPeer(generateRandomId(), roomId);
+      document.getElementById("statusBox").innerText = "Joining room " + roomId + "...";
+    }
+
+    function initPeer(myId, hostRoomId = null) {
+      peer = new Peer(myId);
+      myRoomId = hostRoomId || myId;
+
+      peer.on("open", id => {
+        console.log("My peer ID is: " + id);
+        if (hostRoomId) {
+          const conn = peer.connect(hostRoomId);
+          conn.on("open", () => {
+            conn.send({ join: true, peerId: id });
+          });
+        }
+      });
+
+      peer.on("call", call => {
+        call.answer(localStream);
+        call.on("stream", remoteStream => {
+          if (!peers[call.peer]) {
+            addVideoStream(remoteStream, call.peer);
+            peers[call.peer] = call;
+          }
+        });
+      });
+
+      peer.on("connection", conn => {
+        conn.on("data", data => {
+          if (data.join && data.peerId) {
+            const call = peer.call(data.peerId, localStream);
+            call.on("stream", remoteStream => {
+              if (!peers[data.peerId]) {
+                addVideoStream(remoteStream, data.peerId);
+                peers[data.peerId] = call;
+              }
+            });
+          }
+        });
+      });
+    }
+
+    function addVideoStream(stream, label) {
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.setAttribute("title", label);
+
+      const wrapper = document.createElement("div");
+      wrapper.appendChild(video);
+
+      videoGrid.appendChild(wrapper);
+    }
+
+    function generateRoomId() {
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    function generateRandomId() {
+      return "id" + Math.floor(Math.random() * 10000000);
     }
   </script>
 </body>
