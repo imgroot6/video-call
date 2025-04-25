@@ -23,21 +23,6 @@
     .container {
       padding: 20px;
     }
-    .video-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-      margin-top: 20px;
-    }
-    video {
-      width: 300px;
-      height: 200px;
-      border-radius: 12px;
-      border: 3px solid #0ff;
-      box-shadow: 0px 0px 15px #0ff;
-      background: black;
-    }
     input, button {
       padding: 12px;
       font-size: 16px;
@@ -61,9 +46,6 @@
     button:hover {
       background: #00bbff;
     }
-    .controls {
-      margin-top: 30px;
-    }
     .status {
       margin-top: 15px;
       color: yellow;
@@ -76,112 +58,41 @@
   <div class="container">
     <div>
       <input type="text" id="roomInput" placeholder="Enter 6-digit room code" />
+      <input type="text" id="username" placeholder="Enter your name" />
       <button onclick="createRoom()">🎯 Create Room</button>
       <button onclick="joinRoom()">🔗 Join Room</button>
     </div>
     <div class="status" id="statusBox">Enter or create a room to start</div>
-
-    <div class="video-grid" id="videoGrid">
-      <!-- Local and remote videos will appear here -->
-    </div>
   </div>
 
   <script>
     let peer;
-    let localStream;
-    let peers = {};
     let myRoomId = '';
-    const videoGrid = document.getElementById("videoGrid");
-
-    window.onload = () => {
-      getMedia();
-    };
-
-    async function getMedia() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localStream = stream;
-        addVideoStream(stream, 'You');
-      } catch (e) {
-        alert("Error accessing media: " + e.message);
-      }
-    }
 
     function createRoom() {
-      const roomId = generateRoomId();
-      document.getElementById("roomInput").value = roomId;
-      initPeer(roomId);
-      document.getElementById("statusBox").innerText = "Room created: Share code " + roomId;
+      const roomId = document.getElementById('roomInput').value;
+      const username = document.getElementById('username').value;
+      if (!roomId || !username) return alert("Please enter a room code and your name!");
+      peer = new Peer(roomId);
+
+      peer.on('open', () => {
+        myRoomId = roomId;
+        document.getElementById('statusBox').textContent = `Room created. Your name: ${username}`;
+        window.location.href = 'call.html?room=' + roomId + '&username=' + username;
+      });
     }
 
     function joinRoom() {
-      const roomId = document.getElementById("roomInput").value.trim();
-      if (!roomId) {
-        alert("Please enter a room code");
-        return;
-      }
-      initPeer(generateRandomId(), roomId);
-      document.getElementById("statusBox").innerText = "Joining room " + roomId + "...";
-    }
+      const roomId = document.getElementById('roomInput').value;
+      const username = document.getElementById('username').value;
+      if (!roomId || !username) return alert("Please enter a room code and your name!");
+      peer = new Peer();
 
-    function initPeer(myId, hostRoomId = null) {
-      peer = new Peer(myId);
-      myRoomId = hostRoomId || myId;
-
-      peer.on("open", id => {
-        console.log("My peer ID is: " + id);
-        if (hostRoomId) {
-          const conn = peer.connect(hostRoomId);
-          conn.on("open", () => {
-            conn.send({ join: true, peerId: id });
-          });
-        }
+      peer.on('open', () => {
+        myRoomId = roomId;
+        document.getElementById('statusBox').textContent = `Joining Room... ${roomId}`;
+        window.location.href = 'call.html?room=' + roomId + '&username=' + username;
       });
-
-      peer.on("call", call => {
-        call.answer(localStream);
-        call.on("stream", remoteStream => {
-          if (!peers[call.peer]) {
-            addVideoStream(remoteStream, call.peer);
-            peers[call.peer] = call;
-          }
-        });
-      });
-
-      peer.on("connection", conn => {
-        conn.on("data", data => {
-          if (data.join && data.peerId) {
-            const call = peer.call(data.peerId, localStream);
-            call.on("stream", remoteStream => {
-              if (!peers[data.peerId]) {
-                addVideoStream(remoteStream, data.peerId);
-                peers[data.peerId] = call;
-              }
-            });
-          }
-        });
-      });
-    }
-
-    function addVideoStream(stream, label) {
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      video.autoplay = true;
-      video.playsInline = true;
-      video.setAttribute("title", label);
-
-      const wrapper = document.createElement("div");
-      wrapper.appendChild(video);
-
-      videoGrid.appendChild(wrapper);
-    }
-
-    function generateRoomId() {
-      return Math.floor(100000 + Math.random() * 900000).toString();
-    }
-
-    function generateRandomId() {
-      return "id" + Math.floor(Math.random() * 10000000);
     }
   </script>
 </body>
