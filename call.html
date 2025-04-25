@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Multi-User Video Call</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: black;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin: 20px;
+      color: yellow;
+      text-shadow: 0 0 10px yellow;
+    }
+
+    video {
+      width: 45%;
+      height: auto;
+      margin: 10px;
+      border: 3px solid yellow;
+      border-radius: 10px;
+    }
+
+    .video-container {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 30px;
+    }
+
+    .controls {
+      margin: 30px;
+    }
+
+    button {
+      padding: 12px 20px;
+      margin: 10px;
+      background-color: yellow;
+      border: none;
+      color: black;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: orange;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔴 Multi-User Video Call</h1>
+
+  <div class="video-container" id="videos"></div>
+
+  <div class="controls">
+    <button onclick="toggleAudio()">🎙 Toggle Mic</button>
+    <button onclick="toggleVideo()">🎥 Toggle Cam</button>
+    <button onclick="endCall()">❌ End Call</button>
+  </div>
+
+  <script>
+    const roomCode = new URLSearchParams(window.location.search).get('room');
+    const myVideo = document.createElement('video');
+    const videosContainer = document.getElementById('videos');
+
+    let localStream;
+    let peer = new Peer();
+
+    // Handle video stream
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+      localStream = stream;
+
+      // Show the local video
+      myVideo.srcObject = stream;
+      myVideo.autoplay = true;
+      myVideo.muted = true;
+      videosContainer.appendChild(myVideo);
+
+      // Handle incoming peer connections
+      peer.on('call', (call) => {
+        call.answer(localStream);
+        call.on('stream', (remoteStream) => {
+          addVideoStream(remoteStream);
+        });
+      });
+
+      // Join the room and listen for other peers
+      const socket = new WebSocket('ws://localhost:8080'); // Connect to WebSocket server
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ action: 'joinRoom', room: roomCode, peerId: peer.id }));
+      };
+
+      socket.onmessage = (message) => {
+        const data = JSON.parse(message.data);
+        if (data.action === 'newPeer' && data.room === roomCode) {
+          connectToNewPeer(data.peerId);
+        }
+      };
+    });
+
+    // Add video stream for every new peer
+    function addVideoStream(stream) {
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      videosContainer.appendChild(video);
+    }
+
+    function connectToNewPeer(peerId) {
+      const call = peer.call(peerId, localStream);
+      call.on('stream', (remoteStream) => {
+        addVideoStream(remoteStream);
+      });
+    }
+
+    peer.on('open', (id) => {
+      console.log('Connected with PeerJS ID:', id);
+    });
+
+    function toggleAudio() {
+      localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled;
+    }
+
+    function toggleVideo() {
+      localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled;
+    }
+
+    function endCall() {
+      if (peer) {
+        peer.destroy();
+        alert("Call ended.");
+        window.location.href = "index.html";
+      }
+    }
+  </script>
+</body>
+</html>

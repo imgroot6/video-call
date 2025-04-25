@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video Call Room</title>
+  <script>
+    function generateRoomCode() {
+      const roomCode = Math.floor(100000 + Math.random() * 900000);
+      document.getElementById("roomCode").innerText = roomCode;
+      document.getElementById("roomLink").href = `call.html?room=${roomCode}`;
+    }
+  </script>
+</head>
+<body onload="generateRoomCode()">
+  <h1>🔴 Create a Video Call Room</h1>
+  <p>Your room code: <span id="roomCode"></span></p>
+  <p><a id="roomLink" href="#">Join the Call</a></p>
+</body>
+</html>
