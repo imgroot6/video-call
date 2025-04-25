@@ -57,7 +57,6 @@
   <header>🚀 Groot Meet</header>
   <div class="container">
     <div>
-      <input type="text" id="roomInput" placeholder="Enter 6-digit room code" />
       <input type="text" id="username" placeholder="Enter your name" />
       <button onclick="createRoom()">🎯 Create Room</button>
       <button onclick="joinRoom()">🔗 Join Room</button>
@@ -70,24 +69,26 @@
     let myRoomId = '';
 
     function createRoom() {
-      const roomId = document.getElementById('roomInput').value;
       const username = document.getElementById('username').value;
-      if (!roomId || !username) return alert("Please enter a room code and your name!");
+      if (!username) return alert("Please enter your name!");
+
+      // Generate a random room ID (6 characters)
+      const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       peer = new Peer(roomId);
 
       peer.on('open', () => {
         myRoomId = roomId;
-        document.getElementById('statusBox').textContent = `Room created. Your name: ${username}`;
+        document.getElementById('statusBox').textContent = `Room created. Room ID: ${roomId}`;
         window.location.href = 'call.html?room=' + roomId + '&username=' + username;
       });
     }
 
     function joinRoom() {
-      const roomId = document.getElementById('roomInput').value;
+      const roomId = prompt("Enter Room ID to join:");
       const username = document.getElementById('username').value;
-      if (!roomId || !username) return alert("Please enter a room code and your name!");
-      peer = new Peer();
+      if (!roomId || !username) return alert("Please enter your name and room ID!");
 
+      peer = new Peer();
       peer.on('open', () => {
         myRoomId = roomId;
         document.getElementById('statusBox').textContent = `Joining Room... ${roomId}`;
