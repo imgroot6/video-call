@@ -1,95 +1,142 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Groot Call - Generate Room Code</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Groot Call - Video Room</title>
   <script src="https://unpkg.com/peerjs@1.3.2/dist/peerjs.min.js"></script>
   <style>
-    /* Your styling */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background: #121212;
+      color: white;
+      padding: 20px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 2.5rem;
+      color: #00f9ff;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .controls input {
+      padding: 10px;
+      border-radius: 5px;
+      border: none;
+      width: 200px;
+    }
+    .controls button {
+      padding: 10px 20px;
+      border: none;
+      background: #00f9ff;
+      color: #000;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .videos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      justify-items: center;
+    }
+    video {
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 249, 255, 0.5);
+      max-width: 100%;
+    }
+    .room-code {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1.2rem;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>🔵 Groot Call</h2>
-    <div class="message-box" id="messageBox">Waiting for others to join...</div>
-    
-    <div class="id-box" id="myId">Generating...</div>
-    
-    <h3>Share this Room Code:</h3>
-    <div id="roomCodeBox"></div>  <!-- Show the Room Code Here -->
+  <header>
+    <h1>🚀 Groot Video Call</h1>
+  </header>
 
-    <input type="text" id="peerId" placeholder="Enter Room Code to Join">
-    <button onclick="startCall()">📞 Start Call</button>
-    <button onclick="endCall()">❌ End Call</button>
-    
+  <div class="room-code">
+    Your Room Code: <span id="roomCodeBox">Generating...</span>
   </div>
-  
+
+  <div class="controls">
+    <input type="text" id="peerId" placeholder="Enter Room Code to Call">
+    <button onclick="startCall()">📞 Call</button>
+    <button onclick="endCall()">❌ End</button>
+  </div>
+
+  <div class="videos">
+    <div>
+      <h3>📹 You</h3>
+      <video id="localVideo" autoplay muted playsinline></video>
+    </div>
+    <div>
+      <h3>👥 Other</h3>
+      <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+  </div>
+
   <script>
-    let localStream;
-    let currentCall;
+    let localStream, currentCall;
 
-    // Generate a 6-digit Room Code
-    function generateRoomCode() {
-      const roomCode = Math.floor(100000 + Math.random() * 900000);
-      return roomCode.toString();
-    }
+    const roomCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const peer = new Peer(roomCode);
 
-    // Initialize Peer
-    const peer = new Peer(generateRoomCode()); // Generate Room Code on Peer Creation
-
-    // Show Room Code
-    peer.on('open', id => {
-      document.getElementById('myId').innerText = "Your Room Code: " + id;
-      document.getElementById('roomCodeBox').innerText = id;  // Display Room Code
-      console.log("My Peer ID (Room Code):", id);
+    peer.on("open", id => {
+      document.getElementById("roomCodeBox").textContent = id;
+      console.log("Peer ID:", id);
     });
 
-    // Get Media (Camera and Mic)
-    async function getMedia() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        document.getElementById('localVideo').srcObject = stream;
-        localStream = stream;
-        return stream;
-      } catch (error) {
-        alert('Error accessing media: ' + error.message);
-        throw error;
-      }
-    }
+    peer.on("call", call => {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(stream => {
+          localStream = stream;
+          document.getElementById("localVideo").srcObject = stream;
+          call.answer(stream);
+          call.on("stream", remoteStream => {
+            document.getElementById("remoteVideo").srcObject = remoteStream;
+          });
+          currentCall = call;
+        });
+    });
 
-    // Start Call
     function startCall() {
-      const roomCode = document.getElementById('peerId').value;
-      if (!roomCode) return alert("Please enter a Room Code");
+      const peerId = document.getElementById("peerId").value;
+      if (!peerId) return alert("Enter room code!");
 
-      getMedia().then(() => {
-        const call = peer.call(roomCode, localStream);  // Call the peer using the Room Code
-
-        call.on('stream', (remoteStream) => {
-          document.getElementById('remoteVideo').srcObject = remoteStream;
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(stream => {
+          localStream = stream;
+          document.getElementById("localVideo").srcObject = stream;
+          const call = peer.call(peerId, stream);
+          call.on("stream", remoteStream => {
+            document.getElementById("remoteVideo").srcObject = remoteStream;
+          });
+          currentCall = call;
         });
-
-        call.on('error', err => console.error("Call error: ", err));
-        call.on('close', () => {
-          document.getElementById('remoteVideo').srcObject = null;
-        });
-
-        currentCall = call;
-      });
     }
 
-    // End Call
     function endCall() {
       if (currentCall) {
         currentCall.close();
         currentCall = null;
-        document.getElementById('remoteVideo').srcObject = null;
+        document.getElementById("remoteVideo").srcObject = null;
       }
     }
-
-    // Initialize local media stream
-    getMedia();
   </script>
 </body>
 </html>
