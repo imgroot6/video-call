@@ -45,12 +45,6 @@
       border-radius: 8px;
       border: none;
     }
-    input {
-      width: 200px;
-      background: #1e1e1e;
-      color: white;
-      border: 1px solid #0ff;
-    }
     button {
       background: #0ff;
       color: black;
@@ -69,9 +63,6 @@
       color: yellow;
       font-weight: bold;
     }
-    .chat-container {
-      margin-top: 20px;
-    }
   </style>
 </head>
 <body>
@@ -85,14 +76,9 @@
       <!-- Local and remote videos will appear here -->
     </div>
 
-    <div class="chat-container">
-      <div id="chatBox" style="height: 150px; overflow-y: scroll; margin-bottom: 10px; background-color: #333; padding: 10px; color: white;"></div>
-      <input type="text" id="chatInput" placeholder="Type a message..." style="width: 80%; padding: 10px; font-size: 16px; border: 1px solid #0ff; background: #222; color: white;"/>
-      <button onclick="sendMessage()" style="padding: 10px; font-size: 16px; background: #0ff; color: black;">Send</button>
-    </div>
-
     <div class="controls">
-      <button onclick="startScreenSharing()">Share Screen</button>
+      <button onclick="toggleAudio()">🔇 Mute/Unmute</button>
+      <button onclick="toggleVideo()">🎥 Camera Off/On</button>
       <button onclick="endCall()">End Call</button>
     </div>
   </div>
@@ -103,6 +89,8 @@
     let peers = {};
     let myRoomId = '';
     let username = '';
+    let isAudioMuted = false;
+    let isVideoMuted = false;
     const videoGrid = document.getElementById("videoGrid");
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room');
@@ -113,6 +101,17 @@
 
     window.onload = () => {
       getMedia();
+      peer = new Peer(roomId);
+
+      peer.on('open', (id) => {
+        peer.on('call', (call) => {
+          call.answer(localStream);
+          call.on('stream', (remoteStream) => {
+            addVideoStream(remoteStream, call.peer);
+          });
+          peers[call.peer] = call;
+        });
+      });
     };
 
     async function getMedia() {
@@ -132,37 +131,17 @@
       video.setAttribute('playsinline', true);
       video.id = username;
       videoGrid.append(video);
+      peer.call(roomId, localStream);
     }
 
-    function sendMessage() {
-      const message = document.getElementById('chatInput').value;
-      if (message.trim()) {
-        const chatBox = document.getElementById('chatBox');
-        chatBox.innerHTML += `<p>You: ${message}</p>`;
-        Object.values(peers).forEach(peer => {
-          peer.send(message);
-        });
-      }
-      document.getElementById('chatInput').value = '';
+    function toggleAudio() {
+      isAudioMuted = !isAudioMuted;
+      localStream.getAudioTracks()[0].enabled = !isAudioMuted;
     }
 
-    async function startScreenSharing() {
-      try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const screenTrack = screenStream.getVideoTracks()[0];
-
-        localStream.removeTrack(localStream.getVideoTracks()[0]);
-        localStream.addTrack(screenTrack);
-
-        const localVideo = document.getElementById(username);
-        localVideo.srcObject = localStream;
-
-        Object.values(peers).forEach(peer => {
-          peer.send('Screen sharing started');
-        });
-      } catch (err) {
-        alert("Failed to share screen: " + err);
-      }
+    function toggleVideo() {
+      isVideoMuted = !isVideoMuted;
+      localStream.getVideoTracks()[0].enabled = !isVideoMuted;
     }
 
     function endCall() {
