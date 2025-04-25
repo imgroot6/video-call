@@ -1,68 +1,175 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Groot Call - Join Room</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Groot Meet - Video Call</title>
   <script src="https://unpkg.com/peerjs@1.3.2/dist/peerjs.min.js"></script>
   <style>
-    /* Your styling */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #000000;
+      color: #ffffff;
+      text-align: center;
+    }
+    header {
+      background-color: #1e1e1e;
+      padding: 20px;
+      font-size: 28px;
+      color: #0ff;
+      box-shadow: 0px 2px 10px #0ff;
+    }
+    .container {
+      padding: 20px;
+    }
+    .video-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    video {
+      width: 300px;
+      height: 200px;
+      border-radius: 12px;
+      border: 3px solid #0ff;
+      box-shadow: 0px 0px 15px #0ff;
+      background: black;
+    }
+    input, button {
+      padding: 12px;
+      font-size: 16px;
+      margin: 10px;
+      border-radius: 8px;
+      border: none;
+    }
+    input {
+      width: 200px;
+      background: #1e1e1e;
+      color: white;
+      border: 1px solid #0ff;
+    }
+    button {
+      background: #0ff;
+      color: black;
+      cursor: pointer;
+      box-shadow: 0px 0px 10px #0ff;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #00bbff;
+    }
+    .controls {
+      margin-top: 30px;
+    }
+    .status {
+      margin-top: 15px;
+      color: yellow;
+      font-weight: bold;
+    }
+    .chat-container {
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
+  <header>🚀 Groot Meet - Video Call</header>
   <div class="container">
-    <h2>🔵 Groot Call - Join Room</h2>
-    
-    <input type="text" id="peerId" placeholder="Enter Room Code to Join">
-    <button onclick="joinCall()">📞 Join Call</button>
-    
-    <div class="message-box" id="messageBox">Waiting for others to join...</div>
-    
-    <video id="localVideo" autoplay muted></video>
-    <video id="remoteVideo" autoplay></video>
+    <div id="roomInfo">
+      <div style="color: #0ff; font-size: 18px; font-weight: bold; margin-top: 20px;">Room Code: <span id="roomCodeDisplay"></span></div>
+      <div style="color: #0ff; font-size: 18px; font-weight: bold; margin-top: 20px;">Your Name: <span id="usernameDisplay"></span></div>
+    </div>
+    <div class="video-grid" id="videoGrid">
+      <!-- Local and remote videos will appear here -->
+    </div>
+
+    <div class="chat-container">
+      <div id="chatBox" style="height: 150px; overflow-y: scroll; margin-bottom: 10px; background-color: #333; padding: 10px; color: white;"></div>
+      <input type="text" id="chatInput" placeholder="Type a message..." style="width: 80%; padding: 10px; font-size: 16px; border: 1px solid #0ff; background: #222; color: white;"/>
+      <button onclick="sendMessage()" style="padding: 10px; font-size: 16px; background: #0ff; color: black;">Send</button>
+    </div>
+
+    <div class="controls">
+      <button onclick="startScreenSharing()">Share Screen</button>
+      <button onclick="endCall()">End Call</button>
+    </div>
   </div>
-  
+
   <script>
+    let peer;
     let localStream;
-    let currentCall;
-    const peer = new Peer();  // No need for peerId here, we will join using it
-    
-    // Get Media (Camera and Mic)
+    let peers = {};
+    let myRoomId = '';
+    let username = '';
+    const videoGrid = document.getElementById("videoGrid");
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room');
+    username = urlParams.get('username');
+
+    document.getElementById('roomCodeDisplay').innerText = roomId;
+    document.getElementById('usernameDisplay').innerText = username;
+
+    window.onload = () => {
+      getMedia();
+    };
+
     async function getMedia() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        document.getElementById('localVideo').srcObject = stream;
         localStream = stream;
-        return stream;
-      } catch (error) {
-        alert('Error accessing media: ' + error.message);
-        throw error;
+        addVideoStream(stream, username);
+      } catch (e) {
+        console.error('Error accessing media devices.', e);
       }
     }
 
-    // Join Call
-    function joinCall() {
-      const roomCode = document.getElementById('peerId').value;
-      if (!roomCode) return alert("Please enter a Room Code");
-
-      getMedia().then(() => {
-        peer.connect(roomCode);  // Connect to the same room code
-        const call = peer.call(roomCode, localStream); // Call the room code
-        call.on('stream', (remoteStream) => {
-          document.getElementById('remoteVideo').srcObject = remoteStream;
-        });
-
-        call.on('error', err => console.error("Call error: ", err));
-        call.on('close', () => {
-          document.getElementById('remoteVideo').srcObject = null;
-        });
-
-        currentCall = call;
-      });
+    function addVideoStream(stream, username) {
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.setAttribute('autoplay', true);
+      video.setAttribute('playsinline', true);
+      video.id = username;
+      videoGrid.append(video);
     }
 
-    // Start the camera
-    getMedia();
+    function sendMessage() {
+      const message = document.getElementById('chatInput').value;
+      if (message.trim()) {
+        const chatBox = document.getElementById('chatBox');
+        chatBox.innerHTML += `<p>You: ${message}</p>`;
+        Object.values(peers).forEach(peer => {
+          peer.send(message);
+        });
+      }
+      document.getElementById('chatInput').value = '';
+    }
+
+    async function startScreenSharing() {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenTrack = screenStream.getVideoTracks()[0];
+
+        localStream.removeTrack(localStream.getVideoTracks()[0]);
+        localStream.addTrack(screenTrack);
+
+        const localVideo = document.getElementById(username);
+        localVideo.srcObject = localStream;
+
+        Object.values(peers).forEach(peer => {
+          peer.send('Screen sharing started');
+        });
+      } catch (err) {
+        alert("Failed to share screen: " + err);
+      }
+    }
+
+    function endCall() {
+      localStream.getTracks().forEach(track => track.stop());
+      peer.destroy();
+      window.location.href = 'index.html';
+    }
   </script>
 </body>
 </html>
