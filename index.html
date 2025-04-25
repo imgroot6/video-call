@@ -1,20 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Video Call Room</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Groot Call - Generate Room Code</title>
+  <script src="https://unpkg.com/peerjs@1.3.2/dist/peerjs.min.js"></script>
+  <style>
+    /* Your styling */
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🔵 Groot Call</h2>
+    <div class="message-box" id="messageBox">Waiting for others to join...</div>
+    
+    <div class="id-box" id="myId">Generating...</div>
+    
+    <h3>Share this Room Code:</h3>
+    <div id="roomCodeBox"></div>  <!-- Show the Room Code Here -->
+
+    <input type="text" id="peerId" placeholder="Enter Room Code to Join">
+    <button onclick="startCall()">📞 Start Call</button>
+    <button onclick="endCall()">❌ End Call</button>
+    
+  </div>
+  
   <script>
+    let localStream;
+    let currentCall;
+
+    // Generate a 6-digit Room Code
     function generateRoomCode() {
       const roomCode = Math.floor(100000 + Math.random() * 900000);
-      document.getElementById("roomCode").innerText = roomCode;
-      document.getElementById("roomLink").href = `call.html?room=${roomCode}`;
+      return roomCode.toString();
     }
+
+    // Initialize Peer
+    const peer = new Peer(generateRoomCode()); // Generate Room Code on Peer Creation
+
+    // Show Room Code
+    peer.on('open', id => {
+      document.getElementById('myId').innerText = "Your Room Code: " + id;
+      document.getElementById('roomCodeBox').innerText = id;  // Display Room Code
+      console.log("My Peer ID (Room Code):", id);
+    });
+
+    // Get Media (Camera and Mic)
+    async function getMedia() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById('localVideo').srcObject = stream;
+        localStream = stream;
+        return stream;
+      } catch (error) {
+        alert('Error accessing media: ' + error.message);
+        throw error;
+      }
+    }
+
+    // Start Call
+    function startCall() {
+      const roomCode = document.getElementById('peerId').value;
+      if (!roomCode) return alert("Please enter a Room Code");
+
+      getMedia().then(() => {
+        const call = peer.call(roomCode, localStream);  // Call the peer using the Room Code
+
+        call.on('stream', (remoteStream) => {
+          document.getElementById('remoteVideo').srcObject = remoteStream;
+        });
+
+        call.on('error', err => console.error("Call error: ", err));
+        call.on('close', () => {
+          document.getElementById('remoteVideo').srcObject = null;
+        });
+
+        currentCall = call;
+      });
+    }
+
+    // End Call
+    function endCall() {
+      if (currentCall) {
+        currentCall.close();
+        currentCall = null;
+        document.getElementById('remoteVideo').srcObject = null;
+      }
+    }
+
+    // Initialize local media stream
+    getMedia();
   </script>
-</head>
-<body onload="generateRoomCode()">
-  <h1>🔴 Create a Video Call Room</h1>
-  <p>Your room code: <span id="roomCode"></span></p>
-  <p><a id="roomLink" href="#">Join the Call</a></p>
 </body>
 </html>
